@@ -128,7 +128,7 @@ public async Task<IActionResult> SplitPdf(
     if (file == null)
         return BadRequest(new { success = false, message = "Please upload a PDF file" });
 
-    if (string.IsNullOrEmpty(pages))
+    if (string.IsNullOrWhiteSpace(pages))
         return BadRequest(new { success = false, message = "Please provide pages or ranges" });
 
     using var ms = new MemoryStream();
@@ -138,35 +138,48 @@ public async Task<IActionResult> SplitPdf(
     using var inputDocument = PdfReader.Open(ms, PdfDocumentOpenMode.Import);
     var outputDocument = new PdfDocument();
 
-    // Parse pages string
     var pageNumbers = new List<int>();
-    var parts = pages.Split(',', StringSplitOptions.RemoveEmptyEntries);
-    foreach (var part in parts)
+
+    try
     {
-        if (part.Contains('-'))
+        var parts = pages.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        foreach (var part in parts)
         {
-            var range = part.Split('-');
-            int start = int.Parse(range[0]);
-            int end = int.Parse(range[1]);
-            for (int i = start; i <= end; i++)
-                pageNumbers.Add(i);
-        }
-        else
-        {
-            pageNumbers.Add(int.Parse(part));
+            if (part.Contains('-'))
+            {
+                var range = part.Split('-');
+                if (int.TryParse(range[0], out int start) && int.TryParse(range[1], out int end))
+                {
+                    if (start > 0 && end >= start)
+                    {
+                        for (int i = start; i <= end; i++)
+                            pageNumbers.Add(i);
+                    }
+                }
+            }
+            else if (int.TryParse(part, out int pageNum))
+            {
+                if (pageNum > 0)
+                    pageNumbers.Add(pageNum);
+            }
         }
     }
-
-    // Add pages to output
-    foreach (var pageNum in pageNumbers)
+    catch
     {
-        if (pageNum >= 1 && pageNum <= inputDocument.PageCount)
+        return BadRequest(new { success = false, message = "Invalid page range format" });
+    }
+
+    if (pageNumbers.Count == 0)
+        return BadRequest(new { success = false, message = "No valid pages specified" });
+
+    foreach (var pageNum in pageNumbers.Distinct().OrderBy(x => x))
+    {
+        if (pageNum <= inputDocument.PageCount)
         {
             outputDocument.AddPage(inputDocument.Pages[pageNum - 1]);
         }
     }
 
-    // Save split PDF
     var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "split");
     if (!Directory.Exists(outputDir))
         Directory.CreateDirectory(outputDir);
@@ -186,6 +199,7 @@ public async Task<IActionResult> SplitPdf(
         outputPages = outputDocument.PageCount
     });
 }
+
 
 
 }
