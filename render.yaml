@@ -1,0 +1,10 @@
+# render.yaml
+services:
+  - type: web
+    name: pdf-tools-api
+    env: dotnet
+    branch: main
+    plan: free
+    buildCommand: dotnet publish -c Release -o out
+    startCommand: dotnet out/PdfToolsApi.dll   # replace PdfToolsApi.dll with your actual DLL name
+    autoDeploy: true
