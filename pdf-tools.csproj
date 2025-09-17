@@ -8,6 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+  <Content Include="wwwroot\**\*.*" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="PdfSharp" Version="6.2.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
