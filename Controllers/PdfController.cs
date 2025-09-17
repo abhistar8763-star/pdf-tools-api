@@ -119,4 +119,73 @@ public async Task<IActionResult> CompressPdf([FromForm] IFormFile file)
     });
 }
 
+[HttpPost("split")]
+public async Task<IActionResult> SplitPdf(
+    [FromForm] IFormFile file,
+    [FromForm] string pages // e.g., "1-3,5,7-8"
+)
+{
+    if (file == null)
+        return BadRequest(new { success = false, message = "Please upload a PDF file" });
+
+    if (string.IsNullOrEmpty(pages))
+        return BadRequest(new { success = false, message = "Please provide pages or ranges" });
+
+    using var ms = new MemoryStream();
+    await file.CopyToAsync(ms);
+    ms.Position = 0;
+
+    using var inputDocument = PdfReader.Open(ms, PdfDocumentOpenMode.Import);
+    var outputDocument = new PdfDocument();
+
+    // Parse pages string
+    var pageNumbers = new List<int>();
+    var parts = pages.Split(',', StringSplitOptions.RemoveEmptyEntries);
+    foreach (var part in parts)
+    {
+        if (part.Contains('-'))
+        {
+            var range = part.Split('-');
+            int start = int.Parse(range[0]);
+            int end = int.Parse(range[1]);
+            for (int i = start; i <= end; i++)
+                pageNumbers.Add(i);
+        }
+        else
+        {
+            pageNumbers.Add(int.Parse(part));
+        }
+    }
+
+    // Add pages to output
+    foreach (var pageNum in pageNumbers)
+    {
+        if (pageNum >= 1 && pageNum <= inputDocument.PageCount)
+        {
+            outputDocument.AddPage(inputDocument.Pages[pageNum - 1]);
+        }
+    }
+
+    // Save split PDF
+    var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "split");
+    if (!Directory.Exists(outputDir))
+        Directory.CreateDirectory(outputDir);
+
+    var fileName = $"split_{Guid.NewGuid()}.pdf";
+    var filePath = Path.Combine(outputDir, fileName);
+    outputDocument.Save(filePath);
+
+    var downloadUrl = $"{Request.Scheme}://{Request.Host}/split/{fileName}";
+
+    return Ok(new
+    {
+        success = true,
+        downloadUrl,
+        filename = fileName,
+        originalPages = inputDocument.PageCount,
+        outputPages = outputDocument.PageCount
+    });
+}
+
+
 }

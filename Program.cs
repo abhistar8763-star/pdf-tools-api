@@ -73,6 +73,18 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/compressed"
 });
 
+var splitFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "split");
+if (!Directory.Exists(splitFolder))
+{
+    Directory.CreateDirectory(splitFolder);
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(splitFolder),
+    RequestPath = "/split"
+});
+
 app.UseAuthorization();
 
 app.MapControllers();
