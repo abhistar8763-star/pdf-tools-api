@@ -61,6 +61,18 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/merged"
 });
 
+var compressedFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "compressed");
+if (!Directory.Exists(compressedFolder))
+{
+    Directory.CreateDirectory(compressedFolder);
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(compressedFolder),
+    RequestPath = "/compressed"
+});
+
 app.UseAuthorization();
 
 app.MapControllers();
