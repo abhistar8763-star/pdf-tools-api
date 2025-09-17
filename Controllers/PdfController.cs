@@ -63,9 +63,49 @@ public async Task<IActionResult> MergePdf([FromForm] List<IFormFile> files)
     });
 }
 
-     [HttpPost("merge1")]
-    public IActionResult MergePdf1([FromForm] List<IFormFile> files)
+    [HttpPost("compress")]
+public async Task<IActionResult> CompressPdf([FromForm] IFormFile file)
+{
+    if (file == null)
+        return BadRequest(new { success = false, message = "Please upload a PDF file" });
+
+    using var ms = new MemoryStream();
+    await file.CopyToAsync(ms);
+    ms.Position = 0;
+
+    // Open the original PDF
+    using var inputDocument = PdfReader.Open(ms, PdfDocumentOpenMode.Import);
+
+    // Create a new PDF document (compressed version)
+    using var outputDocument = new PdfDocument();
+    outputDocument.Options.CompressContentStreams = true; // enable compression
+    outputDocument.Options.FlateEncodeMode = PdfFlateEncodeMode.BestCompression;
+
+    for (int i = 0; i < inputDocument.PageCount; i++)
     {
-       return Ok("Hello from PdfController");
+        PdfPage page = inputDocument.Pages[i];
+        outputDocument.AddPage(page);
     }
+
+    // Save compressed PDF in wwwroot/compressed
+    var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "compressed");
+    if (!Directory.Exists(outputDir))
+        Directory.CreateDirectory(outputDir);
+
+    var fileName = $"compressed_{Guid.NewGuid()}.pdf";
+    var filePath = Path.Combine(outputDir, fileName);
+
+    outputDocument.Save(filePath);
+
+    // Return download URL
+    var downloadUrl = $"{Request.Scheme}://{Request.Host}/compressed/{fileName}";
+
+    return Ok(new
+    {
+        success = true,
+        downloadUrl,
+        filename = fileName
+    });
+}
+
 }
