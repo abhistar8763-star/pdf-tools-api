@@ -69,16 +69,19 @@ public async Task<IActionResult> CompressPdf([FromForm] IFormFile file)
     if (file == null)
         return BadRequest(new { success = false, message = "Please upload a PDF file" });
 
+    // Original file size in bytes
+    long originalSize = file.Length;
+
     using var ms = new MemoryStream();
     await file.CopyToAsync(ms);
     ms.Position = 0;
 
-    // Open the original PDF
+    // Open original PDF
     using var inputDocument = PdfReader.Open(ms, PdfDocumentOpenMode.Import);
 
-    // Create a new PDF document (compressed version)
+    // Create compressed PDF
     using var outputDocument = new PdfDocument();
-    outputDocument.Options.CompressContentStreams = true; // enable compression
+    outputDocument.Options.CompressContentStreams = true;
     outputDocument.Options.FlateEncodeMode = PdfFlateEncodeMode.BestCompression;
 
     for (int i = 0; i < inputDocument.PageCount; i++)
@@ -87,24 +90,32 @@ public async Task<IActionResult> CompressPdf([FromForm] IFormFile file)
         outputDocument.AddPage(page);
     }
 
-    // Save compressed PDF in wwwroot/compressed
+    // Save compressed PDF to wwwroot/compressed
     var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "compressed");
     if (!Directory.Exists(outputDir))
         Directory.CreateDirectory(outputDir);
 
     var fileName = $"compressed_{Guid.NewGuid()}.pdf";
     var filePath = Path.Combine(outputDir, fileName);
-
     outputDocument.Save(filePath);
 
-    // Return download URL
+    // Compressed file size in bytes
+    long compressedSize = new FileInfo(filePath).Length;
+
+    // Compression ratio (e.g., 0.75 means 75% of original size)
+    double compressionRatio = Math.Round((double)compressedSize / originalSize, 2);
+
+    // Return JSON response matching CompressPdfResponse interface
     var downloadUrl = $"{Request.Scheme}://{Request.Host}/compressed/{fileName}";
 
     return Ok(new
     {
         success = true,
         downloadUrl,
-        filename = fileName
+        filename = fileName,
+        originalSize,
+        compressedSize,
+        compressionRatio
     });
 }
 
