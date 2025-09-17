@@ -47,11 +47,17 @@ app.UseCors("AllowAll");
 
 app.UseStaticFiles();
 
+var mergedFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "merged");
+
+// Create the folder if it does not exist
+if (!Directory.Exists(mergedFolder))
+{
+    Directory.CreateDirectory(mergedFolder);
+}
+
 app.UseStaticFiles(new StaticFileOptions
 {
-    FileProvider = new PhysicalFileProvider(
-        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "merged")
-    ),
+    FileProvider = new PhysicalFileProvider(mergedFolder),
     RequestPath = "/merged"
 });
 
