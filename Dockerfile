@@ -23,4 +23,5 @@ COPY --from=build /app/publish .
 EXPOSE 8080
 
 # Entry point
-ENTRYPOINT ["dotnet", "PdfToolsApi.dll"]
+ENTRYPOINT ["dotnet", "pdf-tools.dll"]
+
