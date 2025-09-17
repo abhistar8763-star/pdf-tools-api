@@ -46,6 +46,14 @@ app.UseCors("AllowAll");
 
 app.UseStaticFiles();
 
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "merged")
+    ),
+    RequestPath = "/merged"
+});
+
 app.UseAuthorization();
 
 app.MapControllers();
