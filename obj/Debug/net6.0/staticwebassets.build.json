@@ -1,0 +1,54 @@
+{
+  "Version": 1,
+  "Hash": "va6QiMq3dzCtI6oN6+C/aCmRvt1bBiANT9mwHoTumfo=",
+  "Source": "pdf-tools",
+  "BasePath": "_content/pdf-tools",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [
+    {
+      "Name": "pdf-tools\\wwwroot",
+      "Source": "pdf-tools",
+      "ContentRoot": "C:\\code\\pdf-tools-api\\pdf-tools\\wwwroot\\",
+      "BasePath": "_content/pdf-tools",
+      "Pattern": "**"
+    }
+  ],
+  "Assets": [
+    {
+      "Identity": "C:\\code\\pdf-tools-api\\pdf-tools\\wwwroot\\merged\\merged_82365d3a-fc73-4742-836a-9885287daa2c.pdf",
+      "SourceId": "pdf-tools",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\code\\pdf-tools-api\\pdf-tools\\wwwroot\\",
+      "BasePath": "_content/pdf-tools",
+      "RelativePath": "merged/merged_82365d3a-fc73-4742-836a-9885287daa2c.pdf",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\merged\\merged_82365d3a-fc73-4742-836a-9885287daa2c.pdf"
+    },
+    {
+      "Identity": "C:\\code\\pdf-tools-api\\pdf-tools\\wwwroot\\merged\\merged_bc2666d7-b4d5-4014-b2af-58c6e3a88084.pdf",
+      "SourceId": "pdf-tools",
+      "SourceType": "Discovered",
+      "ContentRoot": "C:\\code\\pdf-tools-api\\pdf-tools\\wwwroot\\",
+      "BasePath": "_content/pdf-tools",
+      "RelativePath": "merged/merged_bc2666d7-b4d5-4014-b2af-58c6e3a88084.pdf",
+      "AssetKind": "All",
+      "AssetMode": "All",
+      "AssetRole": "Primary",
+      "RelatedAsset": "",
+      "AssetTraitName": "",
+      "AssetTraitValue": "",
+      "CopyToOutputDirectory": "Never",
+      "CopyToPublishDirectory": "PreserveNewest",
+      "OriginalItemSpec": "wwwroot\\merged\\merged_bc2666d7-b4d5-4014-b2af-58c6e3a88084.pdf"
+    }
+  ]
+}
