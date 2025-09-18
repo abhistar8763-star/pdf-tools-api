@@ -201,8 +201,8 @@ public async Task<IActionResult> SplitPdf(
         success = true,
         downloadUrl,
         filename = fileName,
-        originalPages = inputDocument.PageCount,
-        outputPages = outputDocument.PageCount
+        originalPages = 1,
+        outputPages = 1
     });
 }
 
