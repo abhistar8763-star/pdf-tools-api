@@ -148,7 +148,8 @@ public async Task<IActionResult> SplitPdf(
             if (part.Contains('-'))
             {
                 var range = part.Split('-');
-                if (int.TryParse(range[0], out int start) && int.TryParse(range[1], out int end))
+                if (int.TryParse(range[0], out int start) &&
+                    int.TryParse(range[1], out int end))
                 {
                     if (start > 0 && end >= start)
                     {
@@ -186,7 +187,12 @@ public async Task<IActionResult> SplitPdf(
 
     var fileName = $"split_{Guid.NewGuid()}.pdf";
     var filePath = Path.Combine(outputDir, fileName);
-    outputDocument.Save(filePath);
+
+    // ✅ Safe save using FileStream (avoids "already saved" issue)
+    using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write))
+    {
+        outputDocument.Save(fs, false); // false = keep stream open for disposal
+    }
 
     var downloadUrl = $"{Request.Scheme}://{Request.Host}/split/{fileName}";
 
@@ -199,7 +205,6 @@ public async Task<IActionResult> SplitPdf(
         outputPages = outputDocument.PageCount
     });
 }
-
 
 
 }
