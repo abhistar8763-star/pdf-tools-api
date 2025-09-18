@@ -122,14 +122,43 @@ public async Task<IActionResult> CompressPdf([FromForm] IFormFile file)
 [HttpPost("split")]
 public async Task<IActionResult> SplitPdf(
     [FromForm] IFormFile file,
-    [FromForm] string pages // e.g., "1-3,5,7-8"
+    [FromForm] string? pages,              // existing
+    [FromForm] string? ranges,             // frontend sends this
+    [FromForm] string? selectedPages,      // JSON array string
+    [FromForm] string? mode,               // optional (not used yet)
+    [FromForm] string? sizeLimitMB         // optional (not used yet)
 )
 {
     if (file == null)
         return BadRequest(new { success = false, message = "Please upload a PDF file" });
 
-    if (string.IsNullOrWhiteSpace(pages))
-        return BadRequest(new { success = false, message = "Please provide pages or ranges" });
+    // 🔹 Normalize pages input
+    string? finalPages = null;
+
+    if (!string.IsNullOrWhiteSpace(pages))
+    {
+        finalPages = pages;
+    }
+    else if (!string.IsNullOrWhiteSpace(ranges))
+    {
+        finalPages = ranges;
+    }
+    else if (!string.IsNullOrWhiteSpace(selectedPages))
+    {
+        try
+        {
+            var parsed = System.Text.Json.JsonSerializer.Deserialize<List<int>>(selectedPages);
+            if (parsed != null && parsed.Any())
+                finalPages = string.Join(",", parsed);
+        }
+        catch
+        {
+            return BadRequest(new { success = false, message = "Invalid selectedPages format" });
+        }
+    }
+
+    if (string.IsNullOrWhiteSpace(finalPages))
+        return BadRequest(new { success = false, message = "Please provide pages, ranges, or selectedPages" });
 
     using var ms = new MemoryStream();
     await file.CopyToAsync(ms);
@@ -142,7 +171,7 @@ public async Task<IActionResult> SplitPdf(
 
     try
     {
-        var parts = pages.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        var parts = finalPages.Split(',', StringSplitOptions.RemoveEmptyEntries);
         foreach (var part in parts)
         {
             if (part.Contains('-'))
@@ -188,10 +217,9 @@ public async Task<IActionResult> SplitPdf(
     var fileName = $"split_{Guid.NewGuid()}.pdf";
     var filePath = Path.Combine(outputDir, fileName);
 
-    // ✅ Safe save using FileStream (avoids "already saved" issue)
     using (var fs = new FileStream(filePath, FileMode.Create, FileAccess.Write))
     {
-        outputDocument.Save(fs, false); // false = keep stream open for disposal
+        outputDocument.Save(fs, false);
     }
 
     var downloadUrl = $"{Request.Scheme}://{Request.Host}/split/{fileName}";
@@ -201,10 +229,10 @@ public async Task<IActionResult> SplitPdf(
         success = true,
         downloadUrl,
         filename = fileName,
-        originalPages = 1,
         outputPages = 1
     });
 }
+
 
 
 }
