@@ -9,8 +9,9 @@
 
   <ItemGroup>
   <Content Include="wwwroot\**\*.*" CopyToOutputDirectory="PreserveNewest" />
-    <PackageReference Include="PdfSharp" Version="6.2.1" />
+   <PackageReference Include="PdfSharp" Version="6.2.1" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.9" />
   </ItemGroup>
 
 </Project>

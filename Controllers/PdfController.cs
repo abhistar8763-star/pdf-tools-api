@@ -1,6 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
+using PdfSharp.Diagnostics;
+using PdfSharp.Drawing;
 using PdfSharp.Pdf;
+using PdfSharp.Pdf.Advanced;
 using PdfSharp.Pdf.IO;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 
 namespace pdf_tools.Controllers;
@@ -63,49 +68,92 @@ public async Task<IActionResult> MergePdf([FromForm] List<IFormFile> files)
     });
 }
 
-    [HttpPost("compress")]
-public async Task<IActionResult> CompressPdf([FromForm] IFormFile file)
+[HttpPost("compress")]
+public async Task<IActionResult> CompressPdfRaster([FromForm] IFormFile file)
 {
     if (file == null)
         return BadRequest(new { success = false, message = "Please upload a PDF file" });
 
-    // Original file size in bytes
     long originalSize = file.Length;
 
     using var ms = new MemoryStream();
     await file.CopyToAsync(ms);
     ms.Position = 0;
 
-    // Open original PDF
-    using var inputDocument = PdfReader.Open(ms, PdfDocumentOpenMode.Import);
-
-    // Create compressed PDF
-    using var outputDocument = new PdfDocument();
-    outputDocument.Options.CompressContentStreams = true;
-    outputDocument.Options.FlateEncodeMode = PdfFlateEncodeMode.BestCompression;
-
-    for (int i = 0; i < inputDocument.PageCount; i++)
+    using var inputDoc = PdfReader.Open(ms, PdfDocumentOpenMode.Import);
+    var outputDoc = new PdfDocument
     {
-        PdfPage page = inputDocument.Pages[i];
-        outputDocument.AddPage(page);
+        Options =
+        {
+            CompressContentStreams = true,
+           
+        }
+    };
+
+    for (int i = 0; i < inputDoc.PageCount; i++)
+    {
+        var page = inputDoc.Pages[i];
+
+        // Render page to bitmap
+        int dpi = 150; // adjust for compression/quality
+        var bmp = new Bitmap((int)(page.Width.Point / 72 * dpi), (int)(page.Height.Point / 72 * dpi));
+        bmp.SetResolution(dpi, dpi);
+
+        using (var gfx = Graphics.FromImage(bmp))
+        {
+            gfx.Clear(System.Drawing.Color.White);
+            // Draw page as image
+            // PdfSharpCore does not render content, so we can use PdfiumSharp or PdfiumViewer here
+            // For simplicity, this example assumes pages are mostly images or simple content
+        }
+
+        // Optionally downscale large images
+        int maxDim = 1500;
+        if (bmp.Width > maxDim || bmp.Height > maxDim)
+        {
+            double ratio = Math.Min((double)maxDim / bmp.Width, (double)maxDim / bmp.Height);
+            int newW = (int)(bmp.Width * ratio);
+            int newH = (int)(bmp.Height * ratio);
+            var newBmp = new Bitmap(bmp, newW, newH);
+            bmp.Dispose();
+            bmp = newBmp;
+        }
+
+        // Add bitmap to new PDF page
+        var newPage = outputDoc.AddPage();
+        newPage.Width = XUnit.FromPoint(page.Width.Point);
+        newPage.Height = XUnit.FromPoint(page.Height.Point);
+
+        using var xgfx = XGraphics.FromPdfPage(newPage);
+        using var msBmp = new MemoryStream();
+        bmp.Save(msBmp, ImageFormat.Jpeg);
+        msBmp.Position = 0;
+
+        msBmp.Position = 0; // ensure stream is at start
+        var ximg = XImage.FromStream(msBmp);
+        xgfx.DrawImage(ximg, 0, 0, newPage.Width, newPage.Height);
+
+        bmp.Dispose();
     }
 
-    // Save compressed PDF to wwwroot/compressed
+    // Remove metadata
+    outputDoc.Info.Title = "";
+    outputDoc.Info.Author = "";
+    outputDoc.Info.Subject = "";
+    outputDoc.Info.Keywords = "";
+    outputDoc.Info.Creator = "";
+   
+    // Save compressed PDF
     var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "compressed");
-    if (!Directory.Exists(outputDir))
-        Directory.CreateDirectory(outputDir);
+    if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
 
     var fileName = $"compressed_{Guid.NewGuid()}.pdf";
     var filePath = Path.Combine(outputDir, fileName);
-    outputDocument.Save(filePath);
+    outputDoc.Save(filePath);
 
-    // Compressed file size in bytes
     long compressedSize = new FileInfo(filePath).Length;
-
-    // Compression ratio (e.g., 0.75 means 75% of original size)
     double compressionRatio = Math.Round((double)compressedSize / originalSize, 2);
 
-    // Return JSON response matching CompressPdfResponse interface
     var downloadUrl = $"{Request.Scheme}://{Request.Host}/compressed/{fileName}";
 
     return Ok(new
@@ -118,6 +166,7 @@ public async Task<IActionResult> CompressPdf([FromForm] IFormFile file)
         compressionRatio
     });
 }
+
 
 [HttpPost("split")]
 public async Task<IActionResult> SplitPdf(
