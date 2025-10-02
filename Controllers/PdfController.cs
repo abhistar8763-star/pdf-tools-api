@@ -282,6 +282,68 @@ public async Task<IActionResult> SplitPdf(
     });
 }
 
+  [HttpPost("JpgToPdf")]
+        public async Task<IActionResult> JpgToPdf([FromForm] List<IFormFile> files, [FromForm] string orientation)
+        {
+            if (files == null || !files.Any())
+                return BadRequest(new { success = false, message = "No images uploaded" });
 
+            if (string.IsNullOrWhiteSpace(orientation) || !(orientation.ToLower() == "portrait" || orientation.ToLower() == "landscape"))
+                orientation = "portrait"; // default
+
+            using var pdf = new PdfDocument();
+
+            foreach (var file in files)
+            {
+                if (file.Length == 0) continue;
+
+                using var ms = new MemoryStream();
+                await file.CopyToAsync(ms);
+                ms.Position = 0;
+
+                using var img = XImage.FromStream(ms);
+                var page = new PdfPage();
+
+                // Set page orientation
+                if (orientation.ToLower() == "landscape")
+                {
+                    page.Width = XUnit.FromPoint(img.PointWidth > img.PointHeight ? img.PointWidth : img.PointHeight);
+                    page.Height = XUnit.FromPoint(img.PointWidth > img.PointHeight ? img.PointHeight : img.PointWidth);
+                }
+                else
+                {
+                    page.Width = XUnit.FromPoint(img.PointWidth);
+                    page.Height = XUnit.FromPoint(img.PointHeight);
+                }
+
+                pdf.AddPage(page);
+
+                using var gfx = XGraphics.FromPdfPage(page);
+
+                // Draw image centered
+                var x = (page.Width.Point - img.PointWidth) / 2;
+                var y = (page.Height.Point - img.PointHeight) / 2;
+                gfx.DrawImage(img, x, y, img.PointWidth, img.PointHeight);
+            }
+
+            var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "pdf");
+            if (!Directory.Exists(outputDir))
+                Directory.CreateDirectory(outputDir);
+
+            var fileName = $"jpgToPdf_{Guid.NewGuid()}.pdf";
+            var filePath = Path.Combine(outputDir, fileName);
+
+            pdf.Save(filePath);
+
+            var downloadUrl = $"{Request.Scheme}://{Request.Host}/pdf/{fileName}";
+
+            return Ok(new
+            {
+                success = true,
+                downloadUrl,
+                filename = fileName
+            });
+        }
+    
 
 }

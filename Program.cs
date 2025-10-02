@@ -85,6 +85,18 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/split"
 });
 
+var pdfFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "pdf");
+if (!Directory.Exists(pdfFolder))
+{
+    Directory.CreateDirectory(pdfFolder);
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(pdfFolder),
+    RequestPath = "/pdf"
+});
+
 app.UseAuthorization();
 
 app.MapControllers();
