@@ -317,18 +317,20 @@ public class PdfController : ControllerBase
         await file.CopyToAsync(ms);
         ms.Position = 0;
 
-        // Open PDF in modify mode
         using var inputDoc = PdfReader.Open(ms, PdfDocumentOpenMode.Modify);
 
-        // Set password protection
-        inputDoc.SecuritySettings.UserPassword = password;
-        inputDoc.SecuritySettings.OwnerPassword = password;
-        inputDoc.SecuritySettings.PermitPrint = true;
-        inputDoc.SecuritySettings.PermitModifyDocument = false;
-        inputDoc.SecuritySettings.PermitCopyContent = false;
-        inputDoc.SecuritySettings.PermitAnnotations = true;
+        var security = inputDoc.SecuritySettings;
+        security.UserPassword = password;
+        security.OwnerPassword = password;
 
-        // Save protected PDF
+        // Set permissions
+        security.PermitPrint = true;
+        security.PermitModifyDocument = false;
+        security.PermitAnnotations = true;
+        security.PermitFormsFill = true;
+        security.PermitExtractContent = false; // replaces PermitCopyContent
+        security.PermitAccessibilityExtractContent = false;
+
         var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "protected");
         if (!Directory.Exists(outputDir))
             Directory.CreateDirectory(outputDir);
