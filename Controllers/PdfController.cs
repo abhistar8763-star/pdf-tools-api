@@ -69,84 +69,51 @@ public async Task<IActionResult> MergePdf([FromForm] List<IFormFile> files)
     });
 }
 
-[HttpPost("compress")]
 
 
-public async Task<IActionResult> CompressPdfRaster([FromForm] IFormFile file)
+ [HttpPost("compress")]
+public async Task<IActionResult> CompressPdf([FromForm] IFormFile file)
 {
     if (file == null)
         return BadRequest(new { success = false, message = "Please upload a PDF file" });
 
+    // Original file size in bytes
     long originalSize = file.Length;
 
-    // Read PDF into memory
     using var ms = new MemoryStream();
     await file.CopyToAsync(ms);
     ms.Position = 0;
 
-    using var pdfDocument = PdfDocument.Load(ms);
+    // Open original PDF
+    using var inputDocument = PdfReader.Open(ms, PdfDocumentOpenMode.Import);
 
-    var outputDoc = new PdfDocument();
+    // Create compressed PDF
+    using var outputDocument = new PdfDocument();
+    outputDocument.Options.CompressContentStreams = true;
+    outputDocument.Options.FlateEncodeMode = PdfFlateEncodeMode.BestCompression;
 
-    int targetDpi = 150; // adjust for compression (lower = smaller file)
-
-    for (int i = 0; i < pdfDocument.PageCount; i++)
+    for (int i = 0; i < inputDocument.PageCount; i++)
     {
-        using var page = pdfDocument.Pages[i];
-        var size = page.Size;
-
-        // Render page to bitmap
-        using var bmp = page.Render((int)(size.Width * targetDpi / 72), (int)(size.Height * targetDpi / 72), true);
-
-        // Optional: downscale if too large
-        int maxDim = 1500;
-        int newWidth = bmp.Width;
-        int newHeight = bmp.Height;
-        if (bmp.Width > maxDim || bmp.Height > maxDim)
-        {
-            double ratio = Math.Min((double)maxDim / bmp.Width, (double)maxDim / bmp.Height);
-            newWidth = (int)(bmp.Width * ratio);
-            newHeight = (int)(bmp.Height * ratio);
-        }
-
-        // Create new PDF page
-        var newPage = outputDoc.AddPage();
-        newPage.Width = XUnit.FromPoint(size.Width);
-        newPage.Height = XUnit.FromPoint(size.Height);
-
-        using var gfx = XGraphics.FromPdfPage(newPage);
-
-        // Draw bitmap into PDF
-        using var msBmp = new MemoryStream();
-        var resizedBmp = new Bitmap(bmp, newWidth, newHeight);
-        resizedBmp.Save(msBmp, System.Drawing.Imaging.ImageFormat.Jpeg);
-        msBmp.Position = 0;
-
-        var xImg = XImage.FromStream(msBmp);
-        gfx.DrawImage(xImg, 0, 0, newPage.Width, newPage.Height);
-
-        resizedBmp.Dispose();
+        PdfPage page = inputDocument.Pages[i];
+        outputDocument.AddPage(page);
     }
 
-    // Remove metadata
-    outputDoc.Info.Title = "";
-    outputDoc.Info.Author = "";
-    outputDoc.Info.Subject = "";
-    outputDoc.Info.Keywords = "";
-    outputDoc.Info.Creator = "";
-
-    // Save compressed PDF
+    // Save compressed PDF to wwwroot/compressed
     var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "compressed");
     if (!Directory.Exists(outputDir))
         Directory.CreateDirectory(outputDir);
 
     var fileName = $"compressed_{Guid.NewGuid()}.pdf";
     var filePath = Path.Combine(outputDir, fileName);
-    outputDoc.Save(filePath);
+    outputDocument.Save(filePath);
 
+    // Compressed file size in bytes
     long compressedSize = new FileInfo(filePath).Length;
+
+    // Compression ratio (e.g., 0.75 means 75% of original size)
     double compressionRatio = Math.Round((double)compressedSize / originalSize, 2);
 
+    // Return JSON response matching CompressPdfResponse interface
     var downloadUrl = $"{Request.Scheme}://{Request.Host}/compressed/{fileName}";
 
     return Ok(new
@@ -161,7 +128,8 @@ public async Task<IActionResult> CompressPdfRaster([FromForm] IFormFile file)
 }
 
 
-[HttpPost("split")]
+
+    [HttpPost("split")]
 public async Task<IActionResult> SplitPdf(
     [FromForm] IFormFile file,
     [FromForm] string? pages,              // existing
