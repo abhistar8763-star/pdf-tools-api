@@ -7,6 +7,9 @@ using PdfSharp.Pdf.IO;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using PdfiumSharp;
+using PdfSharpCore.Pdf;
+using PdfSharpCore.Drawing;
 
 namespace pdf_tools.Controllers;
 
@@ -69,6 +72,8 @@ public async Task<IActionResult> MergePdf([FromForm] List<IFormFile> files)
 }
 
 [HttpPost("compress")]
+
+
 public async Task<IActionResult> CompressPdfRaster([FromForm] IFormFile file)
 {
     if (file == null)
@@ -76,64 +81,53 @@ public async Task<IActionResult> CompressPdfRaster([FromForm] IFormFile file)
 
     long originalSize = file.Length;
 
+    // Read PDF into memory
     using var ms = new MemoryStream();
     await file.CopyToAsync(ms);
     ms.Position = 0;
 
-    using var inputDoc = PdfReader.Open(ms, PdfDocumentOpenMode.Import);
-    var outputDoc = new PdfDocument
-    {
-        Options =
-        {
-            CompressContentStreams = true,
-           
-        }
-    };
+    using var pdfDocument = PdfDocument.Load(ms);
 
-    for (int i = 0; i < inputDoc.PageCount; i++)
+    var outputDoc = new PdfDocument();
+
+    int targetDpi = 150; // adjust for compression (lower = smaller file)
+
+    for (int i = 0; i < pdfDocument.PageCount; i++)
     {
-        var page = inputDoc.Pages[i];
+        using var page = pdfDocument.Pages[i];
+        var size = page.Size;
 
         // Render page to bitmap
-        int dpi = 150; // adjust for compression/quality
-        var bmp = new Bitmap((int)(page.Width.Point / 72 * dpi), (int)(page.Height.Point / 72 * dpi));
-        bmp.SetResolution(dpi, dpi);
+        using var bmp = page.Render((int)(size.Width * targetDpi / 72), (int)(size.Height * targetDpi / 72), true);
 
-        using (var gfx = Graphics.FromImage(bmp))
-        {
-            gfx.Clear(System.Drawing.Color.White);
-            // Draw page as image
-            // PdfSharpCore does not render content, so we can use PdfiumSharp or PdfiumViewer here
-            // For simplicity, this example assumes pages are mostly images or simple content
-        }
-
-        // Optionally downscale large images
+        // Optional: downscale if too large
         int maxDim = 1500;
+        int newWidth = bmp.Width;
+        int newHeight = bmp.Height;
         if (bmp.Width > maxDim || bmp.Height > maxDim)
         {
             double ratio = Math.Min((double)maxDim / bmp.Width, (double)maxDim / bmp.Height);
-            int newW = (int)(bmp.Width * ratio);
-            int newH = (int)(bmp.Height * ratio);
-            var newBmp = new Bitmap(bmp, newW, newH);
-            bmp.Dispose();
-            bmp = newBmp;
+            newWidth = (int)(bmp.Width * ratio);
+            newHeight = (int)(bmp.Height * ratio);
         }
 
-        // Add bitmap to new PDF page
+        // Create new PDF page
         var newPage = outputDoc.AddPage();
-        newPage.Width = XUnit.FromPoint(page.Width.Point);
-        newPage.Height = XUnit.FromPoint(page.Height.Point);
+        newPage.Width = XUnit.FromPoint(size.Width);
+        newPage.Height = XUnit.FromPoint(size.Height);
 
-        using var xgfx = XGraphics.FromPdfPage(newPage);
+        using var gfx = XGraphics.FromPdfPage(newPage);
+
+        // Draw bitmap into PDF
         using var msBmp = new MemoryStream();
-        bmp.Save(msBmp, ImageFormat.Jpeg);
+        var resizedBmp = new Bitmap(bmp, newWidth, newHeight);
+        resizedBmp.Save(msBmp, System.Drawing.Imaging.ImageFormat.Jpeg);
         msBmp.Position = 0;
 
-        msBmp.Position = 0; // ensure stream is at start
-        var ximg = XImage.FromStream(msBmp);
-        xgfx.DrawImage(ximg, 0, 0, newPage.Width, newPage.Height);
+        var xImg = XImage.FromStream(msBmp);
+        gfx.DrawImage(xImg, 0, 0, newPage.Width, newPage.Height);
 
-        bmp.Dispose();
+        resizedBmp.Dispose();
     }
 
     // Remove metadata
@@ -142,10 +136,11 @@ public async Task<IActionResult> CompressPdfRaster([FromForm] IFormFile file)
     outputDoc.Info.Subject = "";
     outputDoc.Info.Keywords = "";
     outputDoc.Info.Creator = "";
-   
+
     // Save compressed PDF
     var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "compressed");
-    if (!Directory.Exists(outputDir)) Directory.CreateDirectory(outputDir);
+    if (!Directory.Exists(outputDir))
+        Directory.CreateDirectory(outputDir);
 
     var fileName = $"compressed_{Guid.NewGuid()}.pdf";
     var filePath = Path.Combine(outputDir, fileName);
