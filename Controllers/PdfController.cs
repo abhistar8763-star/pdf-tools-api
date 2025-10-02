@@ -7,7 +7,6 @@ using PdfSharp.Pdf.IO;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
-using PdfiumSharp;
 
 
 namespace pdf_tools.Controllers;
