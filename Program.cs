@@ -97,6 +97,18 @@ app.UseStaticFiles(new StaticFileOptions
     RequestPath = "/pdf"
 });
 
+var protectedFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "protected");
+if (!Directory.Exists(protectedFolder))
+{
+    Directory.CreateDirectory(protectedFolder);
+}
+
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(protectedFolder),
+    RequestPath = "/protected"
+});
+
 app.UseAuthorization();
 
 app.MapControllers();
