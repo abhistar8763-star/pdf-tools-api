@@ -307,49 +307,48 @@ public class PdfController : ControllerBase
         });
     }
 
- [HttpPost("protect")]
-    public async Task<IActionResult> ProtectPdf([FromForm] IFormFile file, [FromForm] string password)
+[HttpPost("protect")]
+public async Task<IActionResult> ProtectPdf([FromForm] IFormFile file, [FromForm] string password)
+{
+    if (file == null || string.IsNullOrWhiteSpace(password))
+        return BadRequest(new { success = false, message = "File and password are required" });
+
+    using var ms = new MemoryStream();
+    await file.CopyToAsync(ms);
+    ms.Position = 0;
+
+    using var inputDoc = PdfReader.Open(ms, PdfDocumentOpenMode.Modify);
+
+    var security = inputDoc.SecuritySettings;
+    security.UserPassword = password;
+    security.OwnerPassword = password;
+
+    // Set permissions
+    security.PermitPrint = true;
+    security.PermitModifyDocument = false;
+    security.PermitAnnotations = true;
+    security.PermitFormsFill = true;
+    security.PermitExtractContent = false; // replaces PermitCopyContent
+    // security.PermitAccessibilityExtractContent = false;  <-- REMOVE THIS LINE
+
+    var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "protected");
+    if (!Directory.Exists(outputDir))
+        Directory.CreateDirectory(outputDir);
+
+    var fileName = $"protected_{Guid.NewGuid()}.pdf";
+    var filePath = Path.Combine(outputDir, fileName);
+
+    inputDoc.Save(filePath);
+
+    var downloadUrl = $"{Request.Scheme}://{Request.Host}/protected/{fileName}";
+
+    return Ok(new
     {
-        if (file == null || string.IsNullOrWhiteSpace(password))
-            return BadRequest(new { success = false, message = "File and password are required" });
-
-        using var ms = new MemoryStream();
-        await file.CopyToAsync(ms);
-        ms.Position = 0;
-
-        using var inputDoc = PdfReader.Open(ms, PdfDocumentOpenMode.Modify);
-
-        var security = inputDoc.SecuritySettings;
-        security.UserPassword = password;
-        security.OwnerPassword = password;
-
-        // Set permissions
-        security.PermitPrint = true;
-        security.PermitModifyDocument = false;
-        security.PermitAnnotations = true;
-        security.PermitFormsFill = true;
-        security.PermitExtractContent = false; // replaces PermitCopyContent
-        security.PermitAccessibilityExtractContent = false;
-
-        var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "protected");
-        if (!Directory.Exists(outputDir))
-            Directory.CreateDirectory(outputDir);
-
-        var fileName = $"protected_{Guid.NewGuid()}.pdf";
-        var filePath = Path.Combine(outputDir, fileName);
-
-        inputDoc.Save(filePath);
-
-        var downloadUrl = $"{Request.Scheme}://{Request.Host}/protected/{fileName}";
-
-        return Ok(new
-        {
-            success = true,
-            downloadUrl,
-            filename = fileName
-        });
-    }
-
+        success = true,
+        downloadUrl,
+        filename = fileName
+    });
+}
 }
 
 
